@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory="app/templates")
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request, db: Session = Depends(get_db)):
     items = db.query(Item).all()
-    return templates.TemplateResponse("index.html", {"request": request, "items": items})
+    return templates.TemplateResponse(request=request, name="index.html", context={"items": items})
 
 @app.post("/items", response_class=HTMLResponse)
 def create_item(
@@ -28,4 +28,4 @@ def create_item(
     db.commit()
     db.refresh(db_item)
     items = db.query(Item).all()
-    return templates.TemplateResponse("index.html", {"request": request, "items": items})
+    return templates.TemplateResponse(request=request, name="index.html", context={"items": items})

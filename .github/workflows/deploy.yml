@@ -17,10 +17,10 @@ jobs:
         with:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USER }}
-          password: ${{ secrets.GCP_PASSWORD }}
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
+            set -eu
             cd /home/bombayv/it373-do-ci
             git pull origin main
-            docker compose down
-            docker compose up -d --build
+            docker compose build --pull
+            docker compose up -d --wait
