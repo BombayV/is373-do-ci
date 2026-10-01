@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Execute Remote SSH Commands
         uses: appleboy/ssh-action@v1.0.3
