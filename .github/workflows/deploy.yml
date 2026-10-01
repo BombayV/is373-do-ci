@@ -1,0 +1,25 @@
+name: CI/CD Deployment
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Execute Remote SSH Commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_HOST }}
+          username: ${{ secrets.GCP_USER }}
+          password: ${{ secrets.GCP_PASSWORD }}
+          script: |
+            cd /home/bombayv/it373-do-ci
+            git pull origin main
+            docker compose down
+            docker compose up -d --build

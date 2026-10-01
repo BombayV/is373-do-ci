@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: it373_fastapi_app
+    restart: always
+    volumes:
+      - sqlite_data:/app/data
+    networks:
+      - traefik-proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi.rule=Host(`is373.bombayv.com`)"
+      - "traefik.http.routers.fastapi.entrypoints=web"
+      - "traefik.http.services.fastapi.loadbalancer.server.port=8000"
+
+networks:
+  traefik-proxy:
+    external: true
+
+volumes:
+  sqlite_data:
