@@ -4,20 +4,28 @@ on:
   push:
     branches: [ main, master ]
 
+concurrency:
+  group: vm-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Execute Remote SSH Commands
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_SSH_KEY }}
+          command_timeout: 20m
           script: |
             set -eu
             cd /home/bombayv/it373-do-ci
