@@ -18,6 +18,7 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USER }}
           password: ${{ secrets.GCP_PASSWORD }}
+          key: ${{ secrets.GCP_SSH_KEY }}
           script: |
             cd /home/bombayv/it373-do-ci
             git pull origin main
