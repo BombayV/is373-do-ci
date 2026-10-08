@@ -2,7 +2,9 @@ name: CI/CD Deployment
 
 on:
   push:
-    branches: [ main, master, qa ]
+    branches: [main, qa]
+  pull_request:
+    branches: [main, qa]
   workflow_dispatch:
 
 concurrency:
@@ -13,35 +15,115 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  validate-build-publish:
     runs-on: ubuntu-latest
-    env:
-      DEPLOY_BRANCH: ${{ github.ref_name }}
-
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+      - name: Set commit-tagged image name
+        run: echo "IMAGE_TAG=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}" >> "$GITHUB_ENV"
+      - name: Validate Python syntax
+        run: python3 -m compileall -q app tests ops
+      - name: Build application image
+        run: |
+          docker build --pull \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$IMAGE_TAG" .
+      - name: Validate dependencies and non-root image user
+        run: |
+          docker run --rm "$IMAGE_TAG" python -m pip check
+          test "$(docker image inspect "$IMAGE_TAG" --format '{{.Config.User}}')" = '10001:10001'
+      - name: Validate HTTP behavior and persistence after restart
+        run: |
+          docker run -d --name ci-app --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true --tmpfs /tmp \
+            -p 127.0.0.1:18000:8000 -v ci-data:/app/data "$IMAGE_TAG"
+          python3 tests/smoke.py
+          docker restart ci-app
+          python3 tests/smoke.py --verify-only
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push tested image and record its digest
+        id: publish
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push "$IMAGE_TAG"
+          IMAGE_REF=$(docker image inspect "$IMAGE_TAG" --format '{{index .RepoDigests 0}}')
+          echo "image=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+          echo "### Published image" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tag: $IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Digest: $IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"
+      - name: Show container logs and clean up
+        if: always()
+        run: |
+          docker logs ci-app || true
+          docker rm -f ci-app || true
+          docker volume rm ci-data || true
 
-      - name: Execute Remote SSH Commands
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: validate-build-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_BRANCH: ${{ github.ref_name }}
+      DEPLOY_COMMIT: ${{ github.sha }}
+      APP_IMAGE: ${{ needs.validate-build-publish.outputs.image }}
+      REGISTRY_USER: ${{ github.actor }}
+      REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Pull and deploy the tested registry image
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_SSH_KEY }}
           command_timeout: 20m
-          envs: DEPLOY_BRANCH
+          envs: DEPLOY_BRANCH,DEPLOY_COMMIT,APP_IMAGE,REGISTRY_USER,REGISTRY_TOKEN
           script: |
             set -eu
             case "$DEPLOY_BRANCH" in
-              qa)
-                cd /home/bombayv/is373-do-ci-qa
-                git pull --ff-only origin qa
-                ;;
-              main|master)
-                cd /home/bombayv/is373-do-ci
-                git pull --ff-only origin main
-                ;;
+              qa) cd /home/bombayv/is373-do-ci-qa ;;
+              main) cd /home/bombayv/is373-do-ci ;;
               *) echo "Unsupported deployment branch"; exit 1 ;;
             esac
-            docker compose build --pull
-            docker compose up -d --wait --wait-timeout 300
+            git fetch origin "$DEPLOY_BRANCH"
+            git checkout --detach "$DEPLOY_COMMIT"
+            export DOCKER_CONFIG=$(mktemp -d)
+            trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+            printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+            unset REGISTRY_TOKEN
+            docker compose pull web
+            docker compose up -d --no-build --wait --wait-timeout 300
+            python3 - <<'PYENV'
+            import os
+            from pathlib import Path
+            path = Path('.env')
+            lines = path.read_text().splitlines() if path.exists() else []
+            lines = [line for line in lines if not line.startswith('APP_IMAGE=')]
+            lines.append('APP_IMAGE=' + os.environ['APP_IMAGE'])
+            path.write_text('\n'.join(lines) + '\n')
+            PYENV
+            docker compose images
+      - name: Verify deployed HTTPS dashboard
+        env:
+          SITE_URL: ${{ github.ref_name == 'qa' && 'https://qa.is373-test.bombayv.com' || 'https://is373-test.bombayv.com' }}
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            --max-time 30 "$SITE_URL/" | grep -q 'Task Dashboard'
