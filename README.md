@@ -9,9 +9,9 @@ Instead of paying for DigitalOcean, Google offers $300 in credits that can be us
 
 ## Environments and successful deployments
 
-- **QA:** [qa.is373-test.bombayv.com](https://qa.is373-test.bombayv.com/) — branch `qa`; [successful QA workflow run](https://github.com/BombayV/is373-do-ci/actions/runs/37819589097).
-- **Production:** [is373-test.bombayv.com](https://is373-test.bombayv.com/) — branch `main`; [successful production workflow run](https://github.com/BombayV/is373-do-ci/actions/runs/37819589095). This is the main deployment on the replacement VM, despite the hostname containing “test.”
-- Both runs deployed commit [`e38c36a92178b2d2bf67f8ea9d047f54320dd269`](https://github.com/BombayV/is373-do-ci/commit/e38c36a92178b2d2bf67f8ea9d047f54320dd269), which enabled branch-specific deployment and separate QA application/database resources.
+- **QA:** [qa.is373-test.bombayv.com](https://qa.is373-test.bombayv.com/) — branch `qa`; [successful QA workflow run](https://github.com/BombayV/is373-do-ci/actions/runs/37822480054).
+- **Production:** [is373-test.bombayv.com](https://is373-test.bombayv.com/) — branch `main`; [successful production workflow run](https://github.com/BombayV/is373-do-ci/actions/runs/37822934305). This is the main deployment on the replacement VM, despite the hostname containing “test.”
+- QA deployed commit [`662893b0e1a912fe60e29787ff765c84abad1be0`](https://github.com/BombayV/is373-do-ci/commit/662893b0e1a912fe60e29787ff765c84abad1be0); production deployed commit [`c1be940d89328c6abfefa070c5095f974201ede4`](https://github.com/BombayV/is373-do-ci/commit/c1be940d89328c6abfefa070c5095f974201ede4). Both linked runs include validation, build, registry push, automatic deployment, and an HTTPS check.
 
 ## Image registry and deployed tags
 
@@ -19,11 +19,13 @@ Images are published to **`ghcr.io/bombayv/is373-do-ci`**. The [public GHCR pack
 
 The [successful registry-based QA run](https://github.com/BombayV/is373-do-ci/actions/runs/37822480054) validated, built, pushed, and automatically deployed commit `662893b0e1a912fe60e29787ff765c84abad1be0`, tagged `sha-662893b0e1a912fe60e29787ff765c84abad1be0`. Its deployed digest is `sha256:a7faa07adfd8c67b8ab4192a8813e67558d6471c1e33cf986c2b180200980a76`.
 
+The [successful registry-based production run](https://github.com/BombayV/is373-do-ci/actions/runs/37822934305) deployed tag `sha-c1be940d89328c6abfefa070c5095f974201ede4`, digest `sha256:ca8b3cdfb61493a5fdb89d150cb2370cceaa7cb2b9b845592a4e325855886f1c`.
+
 Every workflow summary records the full commit, published tag, and image digest. The VM pulls that exact digest rather than rebuilding the application. QA and production build independently rather than promoting one identical digest. See [registry deployment details](docs/REGISTRY-DEPLOYMENT.md) and the [production workflow history](https://github.com/BombayV/is373-do-ci/actions/workflows/deploy.yml?query=branch%3Amain).
 
 ## Screenshots: QA, then production
 
-These screenshots show the resulting deployment in QA and production, captured in that order. They show the same application at the verified commit, with separate databases: QA starts empty and production retains its two restored items. They are current-state evidence, not a before/after recording of a visual feature change. The existing dashboard banner still mentions the old `is373.bombayv.com` hostname; use the environment links above for the active addresses.
+These screenshots show the resulting deployment in QA and production, captured in that order. They show the same application at the verified commit, with separate databases: QA starts empty and production retains its two restored items. They are current-state evidence, not a before/after recording of a visual feature change. These screenshots were captured before registry migration and the later hostname banner update. Both live banners now say `is373-test.bombayv.com`; use the environment links above for the current sites.
 
 ### QA
 

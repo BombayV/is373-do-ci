@@ -38,4 +38,4 @@ docker inspect it373_fastapi_app --format '{{.Config.Image}}'
 docker image inspect IMAGE_DIGEST --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
-If the package remains private, manual pulls require an appropriately authorized registry credential. Automated deployments use the workflow token and do not store a long-lived registry password on the VM.
+The package is public; anonymous manual pulls work. Automated deployments use the workflow token and do not store a long-lived registry password on the VM.
