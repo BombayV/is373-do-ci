@@ -1,7 +1,9 @@
+name: ${COMPOSE_PROJECT_NAME:-it373-do-ci}
+
 services:
   web:
     build: .
-    container_name: it373_fastapi_app
+    container_name: ${APP_CONTAINER_NAME:-it373_fastapi_app}
     restart: always
     read_only: true
     cap_drop: [ALL]

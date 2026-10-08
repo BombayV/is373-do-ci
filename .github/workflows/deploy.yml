@@ -2,7 +2,8 @@ name: CI/CD Deployment
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, qa ]
+  workflow_dispatch:
 
 concurrency:
   group: vm-deployment
@@ -14,6 +15,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_BRANCH: ${{ github.ref_name }}
 
     steps:
       - name: Checkout repository
@@ -26,9 +29,19 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_SSH_KEY }}
           command_timeout: 20m
+          envs: DEPLOY_BRANCH
           script: |
             set -eu
-            cd /home/bombayv/is373-do-ci
-            git pull origin main
+            case "$DEPLOY_BRANCH" in
+              qa)
+                cd /home/bombayv/is373-do-ci-qa
+                git pull --ff-only origin qa
+                ;;
+              main|master)
+                cd /home/bombayv/is373-do-ci
+                git pull --ff-only origin main
+                ;;
+              *) echo "Unsupported deployment branch"; exit 1 ;;
+            esac
             docker compose build --pull
-            docker compose up -d --wait
+            docker compose up -d --wait --wait-timeout 300
