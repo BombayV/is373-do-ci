@@ -28,7 +28,7 @@ jobs:
           command_timeout: 20m
           script: |
             set -eu
-            cd /home/bombayv/it373-do-ci
+            cd /home/bombayv/is373-do-ci
             git pull origin main
             docker compose build --pull
             docker compose up -d --wait
