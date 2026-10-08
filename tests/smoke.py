@@ -21,7 +21,7 @@ for attempt in range(90):
     try:
         page = get_dashboard()
         break
-    except (urllib.error.URLError, TimeoutError):
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
         if attempt == 89:
             raise
         time.sleep(1)
