@@ -11,8 +11,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Verify public HTTPS dashboard
-        run: curl --fail --silent --show-error --max-time 30 https://is373.bombayv.com/ | grep -q 'Task Dashboard'
-      - name: Verify VM health and backup freshness
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://is373.bombayv.com' }}
+        run: curl --fail --silent --show-error --max-time 30 "$APP_URL/" | grep -q 'Task Dashboard'
+      - name: Verify VM health
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.GCP_HOST }}
