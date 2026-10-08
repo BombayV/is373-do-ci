@@ -2,6 +2,11 @@
 
 A FastAPI and SQLite task dashboard deployed with GitHub Actions, Docker Compose, and Traefik HTTPS. Deployment evidence below was verified on **October 8, 2026**.
 
+## VM GCloud
+Instead of paying for DigitalOcean, Google offers $300 in credits that can be used for anyone.
+<img width="1334" height="1042" alt="Screenshot 2026-10-08 at 2 04 03 PM" src="https://github.com/user-attachments/assets/7ede1711-6430-45d7-8708-7828267b2046" />
+
+
 ## Environments and successful deployments
 
 - **QA:** [qa.is373-test.bombayv.com](https://qa.is373-test.bombayv.com/) — branch `qa`; [successful QA workflow run](https://github.com/BombayV/is373-do-ci/actions/runs/37819589097).
