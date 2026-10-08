@@ -2,7 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-it373-do-ci}
 
 services:
   web:
-    build: .
+    image: ${APP_IMAGE:?Set APP_IMAGE to the published image digest}
     container_name: ${APP_CONTAINER_NAME:-it373_fastapi_app}
     restart: always
     read_only: true

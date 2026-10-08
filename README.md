@@ -13,14 +13,13 @@ Instead of paying for DigitalOcean, Google offers $300 in credits that can be us
 - **Production:** [is373-test.bombayv.com](https://is373-test.bombayv.com/) — branch `main`; [successful production workflow run](https://github.com/BombayV/is373-do-ci/actions/runs/37819589095). This is the main deployment on the replacement VM, despite the hostname containing “test.”
 - Both runs deployed commit [`e38c36a92178b2d2bf67f8ea9d047f54320dd269`](https://github.com/BombayV/is373-do-ci/commit/e38c36a92178b2d2bf67f8ea9d047f54320dd269), which enabled branch-specific deployment and separate QA application/database resources.
 
-## Image location and deployed tags
+## Image registry and deployed tags
 
-**Image registry location: none configured.** The workflow builds images directly on the GCP VM and stores them in that VM's Docker image store. It does not push to Docker Hub, GHCR, or Google Artifact Registry; there is no published application image URL.
+Images are published to **`ghcr.io/bombayv/is373-do-ci`**. The [public GHCR package](https://github.com/BombayV/is373-do-ci/pkgs/container/is373-do-ci) is viewable without signing in.
 
-- QA image: `is373-qa-web:latest`; image ID `sha256:038688be9a5c7bad369c12455aabcd53389b598c1be379a843b6b846a4aa4b28`.
-- Production image: `it373-do-ci-web:latest`; image ID `sha256:3be04774fa6661e53d758cf77fd135f5bb13c72bafd09dd9dcab8e5b6009688f`.
+The [successful registry-based QA run](https://github.com/BombayV/is373-do-ci/actions/runs/37822480054) validated, built, pushed, and automatically deployed commit `662893b0e1a912fe60e29787ff765c84abad1be0`, tagged `sha-662893b0e1a912fe60e29787ff765c84abad1be0`. Its deployed digest is `sha256:a7faa07adfd8c67b8ab4192a8813e67558d6471c1e33cf986c2b180200980a76`.
 
-`latest` is mutable. The full commit and image IDs above identify the verified deployment; later builds can replace these tags. QA and production build independently rather than promoting a single registry artifact.
+Every workflow summary records the full commit, published tag, and image digest. The VM pulls that exact digest rather than rebuilding the application. QA and production build independently rather than promoting one identical digest. See [registry deployment details](docs/REGISTRY-DEPLOYMENT.md) and the [production workflow history](https://github.com/BombayV/is373-do-ci/actions/workflows/deploy.yml?query=branch%3Amain).
 
 ## Screenshots: QA, then production
 
@@ -56,10 +55,10 @@ The administration and deployment account is `bombayv`. The MacBook uses its exi
 
 ## How CI/CD works
 
-The [deployment workflow](.github/workflows/deploy.yml) runs on pushes to `qa` and `main`, and supports manual dispatch. GitHub Actions checks out the repository, connects to the VM as `bombayv` using the repository secrets `GCP_HOST`, `GCP_USER`, and `GCP_SSH_KEY`, and selects the branch-specific checkout. QA pulls `qa` in `/home/bombayv/is373-do-ci-qa`; main and the legacy master trigger pull `main` in `/home/bombayv/is373-do-ci`.
+The [deployment workflow](.github/workflows/deploy.yml) runs on pushes to `qa` or `main` and supports manual dispatch. Pull requests targeting either branch run validation without publishing or deploying. GitHub Actions validates Python syntax, builds the image from the [Dockerfile](Dockerfile), checks dependency compatibility and the non-root image user, and tests dashboard rendering, invalid form rejection, item creation, and SQLite persistence after a restart. A failing check prevents publication and deployment.
 
-The VM runs `git pull --ff-only`, then `docker compose build --pull`. The [Dockerfile](Dockerfile) installs the pinned Python dependencies, copies the app, and runs it as UID/GID `10001:10001`. Compose starts the container and waits up to 300 seconds for its HTTP health check to pass. Command or health-check failures fail the deployment. There is currently no separate unit-test, lint, image-scan, or registry-push stage.
+After validation, the runner pushes the tested image to GHCR with tag `sha-<full commit>`. The deployment job connects to the VM as `bombayv` using `GCP_HOST`, `GCP_USER`, and `GCP_SSH_KEY`, checks out the exact triggering commit, pulls the published image digest, and starts it with Docker Compose. It waits for container health, then verifies the deployed HTTPS dashboard. Registry access uses a short-lived workflow token in a temporary Docker configuration that is removed afterward; no long-lived registry credential is stored on the VM.
 
-QA uses container `it373_fastapi_qa` and volume `is373-qa_sqlite_data`; production uses `it373_fastapi_app` and volume `it373-do-ci_sqlite_data`. Traefik routes each hostname to its own container over the shared internal network and terminates HTTPS. A shared deployment concurrency group serializes the two environments on the small VM. Deploying QA does not automatically promote it to production: production deployment requires a push to main or a manual main run.
+QA uses `/home/bombayv/is373-do-ci-qa`, container `it373_fastapi_qa`, and volume `is373-qa_sqlite_data`. Production uses `/home/bombayv/is373-do-ci`, container `it373_fastapi_app`, and volume `it373-do-ci_sqlite_data`. Traefik routes each hostname to its own container and terminates HTTPS. A shared concurrency group serializes deployments. Validate changes on QA, then merge `qa` into `main` to trigger production. Production builds and tests its own commit-tagged image; it does not automatically deploy when QA changes.
 
 The separate [health workflow](.github/workflows/monitor.yml) runs approximately every 15 minutes or manually. It verifies the main HTTPS dashboard, running containers, disk space, and freshness of a successful off-VM backup. The VM also checks health every five minutes. Production SQLite backups run daily at 03:00 UTC, validate a restored copy, and push to the private [is373-backups repository](https://github.com/BombayV/is373-backups). QA has its own database and is not included in that production backup job.
